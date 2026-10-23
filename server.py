@@ -5,6 +5,7 @@ Run (from the project root, after `python -m rag.ingest`):
     uvicorn server:app --port 8000      then open http://localhost:8000
 
 GET  /          chat page; /?q=<question> opens it with that question already answered
+GET  /pdf/History_2024-25.pdf#page=N     the catalogue, opened at page N (reference links)
 POST /ask       {"question": "..."} -> {"found", "answer", "quote", "references": [{"page", "page_label"}]}
                 (a "Not found" reply carries "searched_pages" instead of a quote)
 """
@@ -13,7 +14,7 @@ import json
 from pathlib import Path
 
 from fastapi import FastAPI
-from fastapi.responses import HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from pydantic import BaseModel
 
 from rag import config
@@ -32,6 +33,14 @@ class Question(BaseModel):
 def ask_endpoint(body: Question) -> dict:
     # ask() never raises: anything it can't answer from the catalogue comes back as "Not found".
     return ask(body.question)
+
+
+@app.get(f"/pdf/{config.PDF_PATH.name}", response_model=None)
+def pdf() -> FileResponse | RedirectResponse:
+    # The catalogue itself, so a reference link like /pdf/History_2024-25.pdf#page=91 opens it at that page.
+    if config.PDF_PATH.exists():
+        return FileResponse(config.PDF_PATH, media_type="application/pdf")
+    return RedirectResponse(config.PDF_URL)
 
 
 @app.get("/", response_class=HTMLResponse)

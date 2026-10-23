@@ -80,6 +80,10 @@
   .refs { display:flex; flex-wrap:wrap; align-items:center; gap:8px; font-size:13.5px; }
   .ref { background:var(--blue-50); color:var(--blue-700); font-weight:700; padding:5px 11px; border-radius:10px; border:1px solid var(--blue-200); }
   .ref.searched { background:#fff; color:var(--muted); border:1px dashed #cbd5e1; font-weight:600; }
+  a.ref { text-decoration:none; transition:background .12s, border-color .12s, box-shadow .12s; }
+  a.ref:hover { background:#dbeafe; border-color:var(--blue-400); box-shadow:0 4px 12px rgba(29,78,216,.15); }
+  a.ref.searched:hover { color:var(--blue-700); background:var(--blue-50); }
+  .open { font-size:12px; color:var(--muted); }
   blockquote { margin:12px 0 0; padding:10px 14px; background:#f1f6ff; border-radius:12px; font-size:14.5px; font-style:italic;
                color:#1e293b; white-space:pre-wrap; }
   .dots span { display:inline-block; width:9px; height:9px; margin-right:5px; border-radius:50%; animation:bounce 1s infinite ease-in-out; }
@@ -218,6 +222,16 @@ function removeCard(card) {
   }, 180);
 }
 
+function pageLink(page, cls, text) {
+  // Browsers' PDF viewers open the file at the page given in #page=N.
+  const a = el('a', cls, text);
+  a.href = '/pdf/History_2024-25.pdf#page=' + page;
+  a.target = '_blank';
+  a.rel = 'noopener';
+  a.title = 'Open History_2024-25.pdf at page ' + page;
+  return a;
+}
+
 function answerText(res) {
   let text = 'Q: ' + res.question + '\nA: ' + res.answer;
   if (res.found) text += '\nReference: History_2024-25.pdf, ' + res.references.map(r => 'page ' + r.page).join(', ');
@@ -263,13 +277,14 @@ function render(res, placeholder, animate = true) {
   const refs = el('div', 'refs');
   if (res.found) {
     refs.append(el('span', 'label', 'Reference'));
-    res.references.forEach(r => refs.append(el('span', 'ref', '📄 History_2024-25.pdf · page ' + r.page +
-      (r.page_label && r.page_label !== String(r.page) ? ' (printed ' + r.page_label + ')' : ''))));
+    res.references.forEach(r => refs.append(pageLink(r.page, 'ref', '📄 History_2024-25.pdf · page ' + r.page +
+      (r.page_label && r.page_label !== String(r.page) ? ' (printed ' + r.page_label + ')' : '') + ' ↗')));
+    refs.append(el('span', 'open', 'click to open the PDF at this page'));
     card.append(refs);
     if (res.quote) card.append(el('blockquote', null, '“' + res.quote + '”'));
   } else if (res.searched_pages && res.searched_pages.length) {
     refs.append(el('span', 'label', 'Reference: none · closest pages searched'));
-    res.searched_pages.forEach(p => refs.append(el('span', 'ref searched', 'p. ' + p)));
+    res.searched_pages.forEach(p => refs.append(pageLink(p, 'ref searched', 'p. ' + p)));
     card.append(refs);
   }
 

@@ -229,6 +229,7 @@ def format_reply(res: dict) -> str:
     reply = f"{res['answer']}\nReference: {config.PDF_PATH.name}, {pages}"
     if res.get("quote"):
         reply += f'\nQuote: "{res["quote"]}"'
+    reply += f"\nOpen: {config.PDF_URL}#page={res['references'][0]['page']}"
     return reply
 
 

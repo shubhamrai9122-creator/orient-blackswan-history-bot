@@ -13,8 +13,11 @@ quote. If the answer is not in the catalogue, the bot replies **`Not found`**.
 
 | # | Question | Bot's answer | Reference (where the answer is) |
 |---|---|---|---|
-| 1 | On what date were the prices in this catalogue last updated? | **20-01-2025** (20 January 2025) | `History_2024-25.pdf`, page 91 (printed page 88): *"Prices updated on 20-01-2025."* |
-| 2 | In which year was the publisher (Orient BlackSwan) incorporated? | **1948** | `History_2024-25.pdf`, page 2 (printed page ii): *"Incorporated in 1948, the consistent emphasis of our publishing programme has been on quality."* |
+| 1 | On what date were the prices in this catalogue last updated? | **20-01-2025** (20 January 2025) | [`History_2024-25.pdf`, page 91 (printed page 88)](https://www.orientblackswan.com/pdfs/downloads/History_2024-25.pdf#page=91): *"Prices updated on 20-01-2025."* |
+| 2 | In which year was the publisher (Orient BlackSwan) incorporated? | **1948** | [`History_2024-25.pdf`, page 2 (printed page ii)](https://www.orientblackswan.com/pdfs/downloads/History_2024-25.pdf#page=2): *"Incorporated in 1948, the consistent emphasis of our publishing programme has been on quality."* |
+
+Click a reference to open the catalogue at that page. In the web UI, every reference chip is a link to
+`/pdf/History_2024-25.pdf#page=N`, which opens the PDF at the cited page.
 | 3 | What is the price of a Physics textbook? | **Not found** | None. The catalogue lists history titles only; it has no physics textbook. |
 | 4 | Who is the current Minister of Education? | **Not found** | None. No minister is named anywhere in the catalogue. |
 | 5 | Which is the "best" history book for a beginner? | **Not found** | None. The catalogue describes books but never ranks them as "best" or for beginners. |

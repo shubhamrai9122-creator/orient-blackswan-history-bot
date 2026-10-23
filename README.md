@@ -57,18 +57,33 @@ Each screenshot is the web UI (`server.py`) answering one exam question.
 
 ```mermaid
 flowchart LR
-    A["History_2024-25.pdf<br/>91 pages"] --> B["PyPDFLoader<br/>1 document per page"]
-    B --> C["RecursiveCharacterTextSplitter<br/>1000 chars, 150 overlap<br/>750 chunks"]
-    C --> D["Gemini embeddings<br/>gemini-embedding-001"]
-    D --> E[("ChromaDB<br/>./db")]
-    Q["Question"] --> R["Retriever<br/>top 6 chunks"]
-    E --> R
-    R --> P["Grounded prompt<br/>chunks tagged [Page N]"]
-    P --> L["Gemini 3.5 Flash"]
-    L --> J["JSON<br/>found, answer, pages, quote"]
-    J --> G{"Guardrail"}
-    G -- "found on a retrieved page" --> OK["Answer + page reference + quote"]
-    G -- "otherwise" --> NF["Not found"]
+    subgraph INGEST["① Ingest: run once (rag/ingest.py)"]
+        direction TB
+        A["📄 History_2024-25.pdf<br/>91 pages"] --> B["PyPDFLoader<br/>1 document per page<br/>keeps page numbers"]
+        B --> C["RecursiveCharacterTextSplitter<br/>1000 chars, 150 overlap<br/>750 chunks"]
+        C --> D["Gemini embeddings<br/>gemini-embedding-001"]
+        D --> E[("ChromaDB<br/>./db")]
+    end
+
+    subgraph ASK["② Ask: every question (rag/ask.py)"]
+        direction TB
+        Q["❓ Question<br/>CLI or web UI"] --> R["Retriever<br/>top 6 similar chunks<br/>from ChromaDB"]
+        R --> P["Grounded prompt<br/>chunks tagged [Page N]<br/>use ONLY this context"]
+        P --> L["Gemini 3.5 Flash"]
+        L --> J["JSON<br/>found, answer, pages, quote"]
+        J --> G{"Guardrail:<br/>answer on a<br/>retrieved page?"}
+        G -->|yes| OK["✅ Answer<br/>+ Reference: page N<br/>+ exact quote"]
+        G -->|no| NF["❌ Not found"]
+    end
+
+    INGEST ==>|"vector store"| ASK
+
+    classDef choco fill:#4a2c1a,stroke:#2b1a10,color:#ffffff
+    classDef found fill:#e4f6ec,stroke:#1f9d55,color:#14532d
+    classDef notfound fill:#fde8ea,stroke:#d62839,color:#a4161a
+    class E,L choco
+    class OK found
+    class NF notfound
 ```
 
 1. **Ingest** (`rag/ingest.py`, run once): `PyPDFLoader` reads the PDF page by page, so every chunk keeps its page number

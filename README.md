@@ -93,7 +93,7 @@ flowchart LR
 $ python -m rag.ask --all
 
 Q1: On what date were the prices in this catalogue last updated?
-A: The prices were last updated on 20-01-2025.
+A: 20-01-2025
 Reference: History_2024-25.pdf, page 91 (printed page 88)
 Quote: "Prices updated on 20-01-2025."
 
@@ -104,13 +104,20 @@ Quote: "Incorporated in 1948, the consistent emphasis of our publishing programm
 
 Q3: What is the price of a Physics textbook?
 A: Not found
+Reference: none (closest pages searched: 8, 54, 56, 63, 85, 91)
 
 Q4: Who is the current Minister of Education?
 A: Not found
+Reference: none (closest pages searched: 34, 37, 38)
 
 Q5: Which is the "best" history book for a beginner?
 A: Not found
+Reference: none (closest pages searched: 16, 50, 56, 57, 61, 62)
 ```
+
+> **Free-tier note:** ingesting the catalogue takes 750 embedding requests, and the Gemini free tier allows 1,000 per day
+> for `gemini-embedding-001`. After one ingest you have roughly 250 questions left that day. When the quota runs out,
+> the web UI shows "Gemini free-tier quota reached" instead of failing silently.
 
 ---
 

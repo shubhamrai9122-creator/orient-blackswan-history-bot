@@ -12,7 +12,7 @@ POST /ask       {"question": "..."} -> {"found", "answer", "quote", "references"
 import json
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
@@ -30,7 +30,12 @@ class Question(BaseModel):
 
 @app.post("/ask")
 def ask_endpoint(body: Question) -> dict:
-    return ask(body.question)
+    try:
+        return ask(body.question)
+    except Exception as err:
+        if "RESOURCE_EXHAUSTED" in str(err):
+            raise HTTPException(429, "Gemini free-tier quota reached. Try again after the daily reset or use another API key.")
+        raise
 
 
 @app.get("/", response_class=HTMLResponse)

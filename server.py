@@ -6,12 +6,16 @@ Run (from the project root, after `python -m rag.ingest`):
 
 GET  /          chat page; /?q=<question> opens it with that question already answered
 GET  /pdf/History_2024-25.pdf#page=N     the catalogue, opened at page N (reference links)
+POST /query     {"name": "...", "message": "..."} -> saved to data/queries.jsonl ("Raise a query" button)
+GET  /queries   every query raised so far, newest first
 POST /ask       {"question": "..."} -> {"found", "answer", "quote", "references": [{"page", "page_label"}]}
                 (a "Not found" reply carries "searched_pages" instead of a quote)
 """
 
 import json
+from datetime import datetime
 from pathlib import Path
+from threading import Lock
 
 from fastapi import FastAPI
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
@@ -21,12 +25,45 @@ from rag import config
 from rag.ask import EXAM_QUESTIONS, ask
 
 PAGE = Path(__file__).parent / "static" / "index.html"
+QUERIES = Path(__file__).parent / "data" / "queries.jsonl"   # queries raised from the web UI
+_queries_lock = Lock()
 
 app = FastAPI(title="Orient BlackSwan History Bot")
 
 
 class Question(BaseModel):
     question: str
+
+
+class RaisedQuery(BaseModel):
+    name: str = ""
+    message: str
+
+
+@app.post("/query")
+def raise_query(body: RaisedQuery) -> dict:
+    # Anyone can raise a query (a problem, a wrong answer, a request); it is appended to data/queries.jsonl.
+    message = body.message.strip()
+    if not message:
+        return {"ok": False, "detail": "Please write your query."}
+    record = {
+        "time": datetime.now().isoformat(timespec="seconds"),
+        "name": body.name.strip()[:100] or "Anonymous",
+        "message": message[:2000],
+    }
+    with _queries_lock:
+        QUERIES.parent.mkdir(exist_ok=True)
+        with QUERIES.open("a") as f:
+            f.write(json.dumps(record, ensure_ascii=False) + "\n")
+    return {"ok": True}
+
+
+@app.get("/queries")
+def list_queries() -> list:
+    # Every query raised so far, newest first.
+    if not QUERIES.exists():
+        return []
+    return [json.loads(line) for line in QUERIES.read_text().splitlines() if line.strip()][::-1]
 
 
 @app.post("/ask")

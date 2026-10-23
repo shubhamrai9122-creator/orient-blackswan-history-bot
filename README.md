@@ -111,7 +111,8 @@ flowchart LR
    carries the page reference and the supporting quote. A `Not found` reply also lists the closest pages it searched.
 5. **Interfaces**: a CLI (`python -m rag.ask`) and a FastAPI website (`server.py` + `static/index.html`). The website
    has clickable exam questions, a loading state, page-reference chips, the supporting quote, a copy button, and a
-   red "Not in document" state. The layout is responsive from phone to desktop.
+   red "Not in document" state. The layout is responsive from phone to desktop. A **💬 Raise a query** button lets anyone
+   send a problem, wrong answer or request; queries are saved to `data/queries.jsonl` and listed at `/queries`.
 
 ### Example run (CLI)
 

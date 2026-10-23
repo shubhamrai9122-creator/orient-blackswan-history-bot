@@ -102,6 +102,25 @@
   .toast.show { opacity:1; pointer-events:auto; transform:translate(-50%, 0); }
   .toast button { border:0; background:var(--blue-600); color:#fff; font-weight:700; padding:6px 12px; border-radius:8px; }
 
+  /* Raise a query: floating button + dialog */
+  .fab { position:fixed; right:22px; bottom:22px; z-index:9; border:0; border-radius:999px; padding:13px 20px; font-weight:700; color:#fff;
+         background:linear-gradient(135deg, #3b82f6, var(--blue-700)); box-shadow:0 10px 26px rgba(29,78,216,.4); }
+  .fab:hover { filter:brightness(1.08); }
+  dialog { width:min(480px, calc(100% - 28px)); border:0; border-radius:18px; padding:0; box-shadow:0 30px 70px rgba(15,23,42,.35); }
+  dialog::backdrop { background:rgba(15,23,42,.45); }
+  .qform { padding:20px 22px 18px; background:linear-gradient(180deg, #e4eeff 0%, #ffffff 45%); }
+  .qform h3 { margin:0 0 4px; font-size:19px; }
+  .qform p { margin:0 0 14px; color:var(--muted); font-size:14px; }
+  .qform label { display:block; font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:.06em; color:var(--navy); margin:10px 0 4px; }
+  .qform input, .qform textarea { width:100%; border:1px solid var(--line); border-radius:12px; padding:10px 12px; font:inherit; font-size:16px; background:#fff; color:var(--ink); }
+  .qform textarea { min-height:120px; resize:vertical; }
+  .qform input:focus, .qform textarea:focus { outline:0; border-color:var(--blue-600); box-shadow:0 0 0 4px rgba(37,99,235,.15); }
+  .qform .buttons { display:flex; justify-content:flex-end; gap:8px; margin-top:16px; }
+  .qform .buttons button { border-radius:10px; padding:10px 18px; font-weight:700; }
+  .qform .cancel { border:1px solid var(--line); background:#fff; color:var(--muted); }
+  .qform .submit { border:0; color:#fff; background:linear-gradient(135deg, #3b82f6, var(--blue-700)); }
+  .qform .error { color:var(--red); font-size:13px; margin-top:8px; min-height:1em; }
+
   /* Responsive: long text wraps, then tablet and phone layouts */
   .q, .answer, .ref, blockquote, .chip { overflow-wrap:anywhere; }
   @media (max-width:820px) {
@@ -130,7 +149,9 @@
     .ref { font-size:12.5px; }
     blockquote { font-size:14px; }
     footer { padding:0 14px 24px; }
-    .toast { width:calc(100% - 28px); justify-content:space-between; }
+    .toast { width:calc(100% - 28px); justify-content:space-between; bottom:84px; }
+    .fab { right:14px; bottom:14px; padding:12px 16px; }
+    main { padding-bottom:70px; }
   }
   @media (max-width:560px), (hover:none) { .kbd-hint { display:none; } }
   @media (hover:none) { .chip:hover { transform:none; box-shadow:none; } }
@@ -174,6 +195,23 @@
 
 <div class="toast" id="toast" role="status"><span></span><button id="undo" type="button">Undo</button></div>
 
+<button class="fab" id="raise" type="button">💬 Raise a query</button>
+<dialog id="query-dialog" aria-labelledby="query-title">
+  <form class="qform" id="query-form" method="dialog">
+    <h3 id="query-title">Raise a query</h3>
+    <p>Found a wrong answer, a problem, or have a request? Tell us and it will be looked at.</p>
+    <label for="query-name">Your name (optional)</label>
+    <input id="query-name" autocomplete="name" maxlength="100" placeholder="Anonymous">
+    <label for="query-message">Your query</label>
+    <textarea id="query-message" maxlength="2000" required placeholder="Describe your query…"></textarea>
+    <div class="error" id="query-error"></div>
+    <div class="buttons">
+      <button class="cancel" type="button" id="query-cancel">Cancel</button>
+      <button class="submit" type="submit" id="query-submit">Submit query</button>
+    </div>
+  </form>
+</dialog>
+
 <script>
 /*__BOOT__*/
 const BOOT = window.BOOT || { initial: [], examples: [], model: '' };
@@ -204,6 +242,7 @@ function clearEmpty() {
 
 function showToast(text, undoFn) {
   undo = undoFn;
+  document.getElementById('undo').hidden = !undoFn;
   toast.querySelector('span').textContent = text;
   toast.classList.add('show');
   clearTimeout(toastTimer);
@@ -355,7 +394,37 @@ document.getElementById('undo').onclick = () => {
 };
 
 document.addEventListener('keydown', e => {
-  if (e.key === '/' && document.activeElement !== input) { e.preventDefault(); input.focus(); }
+  if (e.key === '/' && document.activeElement === document.body) { e.preventDefault(); input.focus(); }
+});
+
+// Raise a query: anyone can send a problem, wrong answer or request; the server saves it.
+const dialog = document.getElementById('query-dialog');
+const queryMessage = document.getElementById('query-message');
+const queryError = document.getElementById('query-error');
+document.getElementById('raise').onclick = () => { queryError.textContent = ''; dialog.showModal(); queryMessage.focus(); };
+document.getElementById('query-cancel').onclick = () => dialog.close();
+document.getElementById('query-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const message = queryMessage.value.trim();
+  if (!message) { queryError.textContent = 'Please write your query.'; return; }
+  const submit = document.getElementById('query-submit');
+  submit.disabled = true;
+  try {
+    const r = await fetch('/query', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: document.getElementById('query-name').value, message }),
+    });
+    const res = await r.json();
+    if (!r.ok || !res.ok) throw new Error(res.detail || 'HTTP ' + r.status);
+    queryMessage.value = '';
+    dialog.close();
+    showToast('Query sent. Thank you!');
+  } catch (err) {
+    queryError.textContent = 'Could not send your query: ' + err.message;
+  } finally {
+    submit.disabled = false;
+  }
 });
 
 BOOT.examples.forEach((q, i) => {

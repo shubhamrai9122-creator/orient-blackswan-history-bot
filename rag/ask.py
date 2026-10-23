@@ -57,11 +57,17 @@ Rules:
    says so explicitly: set "found" to false.
 4. Questions about other subjects, people or current affairs that the excerpts do not
    cover: set "found" to false.
-5. "pages" lists the page number(s) of the excerpt(s) holding the answer, and "quote"
-   is copied word for word from that excerpt.
+5. "answer" is one complete sentence that directly answers the question.
+6. "pages" lists the page number(s) of the excerpt(s) holding the answer.
+7. "quote" is the full supporting passage, copied word for word from that excerpt: the
+   sentence that contains the answer plus the sentences around it that give its context
+   (one to three complete sentences, not a fragment).
+8. When "found" is false, "reason" explains in one or two sentences what the excerpts do
+   or do not contain about the question (for example, that the catalogue lists only
+   history titles). Use only the excerpts; never invent facts.
 
 Reply with ONLY this JSON object, no markdown:
-{{"found": true or false, "answer": "<short answer>", "pages": [<page numbers>], "quote": "<exact supporting text>"}}
+{{"found": true or false, "answer": "<one complete sentence>", "pages": [<page numbers>], "quote": "<full supporting passage>", "reason": "<only when found is false>"}}
 
 Catalogue excerpts:
 {context}
@@ -127,8 +133,10 @@ def format_chunks(chunks) -> str:
     return "\n\n".join(f"[Page {c.metadata['page_number']}]\n{c.page_content}" for c in chunks)
 
 
-def not_found(question: str, searched=()) -> dict:
+def not_found(question: str, searched=(), reason: str = "") -> dict:
     result = {"question": question, "found": False, "answer": config.NOT_FOUND, "references": []}
+    if reason:
+        result["reason"] = reason
     if searched:
         result["searched_pages"] = sorted(searched)
     return result
@@ -141,7 +149,8 @@ def apply_guardrail(state: dict) -> dict:
     pages = sorted({int(p) for p in result.get("pages", []) if str(p).isdigit() and int(p) in retrieved})
     answer = str(result.get("answer", "")).strip()
     if not result.get("found") or not answer or not pages:
-        reply = not_found(state["question"], retrieved)
+        reason = str(result.get("reason", "")).strip() or "The catalogue excerpts closest to this question do not contain the answer."
+        reply = not_found(state["question"], retrieved, reason)
     else:
         reply = {
             "question": state["question"],
@@ -168,7 +177,9 @@ def build_chain():
 
     def answer(state: dict) -> dict:
         # Nothing relevant retrieved (e.g. gibberish): no need to ask the model.
-        return answer_chain.invoke(state) if state["chunks"] else {"found": False}
+        if not state["chunks"]:
+            return {"found": False, "reason": "Nothing in the catalogue matches the words in this question."}
+        return answer_chain.invoke(state)
 
     # Retrieve once, keep the chunks for the guardrail, then answer.
     return (
@@ -200,14 +211,15 @@ def ask(question: str) -> dict:
     if key in ANSWERS:
         return {**ANSWERS[key], "question": question}
     if not re.search(r"[a-z0-9]", key):
-        return not_found(question)
+        return not_found(question, reason="The question has no words to search the catalogue for.")
     try:
         result = build_chain().invoke({"question": question})
     except Exception as err:  # quota, network or an unreadable model reply
         log.error("Could not answer %r: %s", question, str(err)[:200])
-        return not_found(question)
-    # Keep answers from the full semantic search; keyword-search answers get redone once embeddings work again.
-    if result["retrieval"] == "embeddings":
+        return not_found(question, reason="No answer from the catalogue could be confirmed for this question.")
+    # Keep grounded answers and semantic-search results. A keyword-search "Not found" is not kept,
+    # so it gets redone properly once embeddings work again.
+    if result["retrieval"] == "embeddings" or result["found"]:
         with _answers_lock:
             ANSWERS[key] = result
             try:
@@ -219,8 +231,13 @@ def ask(question: str) -> dict:
 
 def format_reply(res: dict) -> str:
     if not res["found"]:
+        reply = config.NOT_FOUND
+        if res.get("reason"):
+            reply += f"\nReason: {res['reason']}"
         searched = ", ".join(str(p) for p in res.get("searched_pages", []))
-        return config.NOT_FOUND + (f"\nReference: none (closest pages searched: {searched})" if searched else "")
+        if searched:
+            reply += f"\nReference: none (closest pages searched: {searched})"
+        return reply
     pages = ", ".join(
         f"page {r['page']}"
         + (f" (printed page {r['page_label']})" if r["page_label"] not in (None, str(r["page"])) else "")

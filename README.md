@@ -13,8 +13,8 @@ quote. If the answer is not in the catalogue, the bot replies **`Not found`**.
 
 | # | Question | Bot's answer | Reference (where the answer is) |
 |---|---|---|---|
-| 1 | On what date were the prices in this catalogue last updated? | **20-01-2025** (20 January 2025) | [`History_2024-25.pdf`, page 91 (printed page 88)](https://www.orientblackswan.com/pdfs/downloads/History_2024-25.pdf#page=91): *"Prices updated on 20-01-2025."* |
-| 2 | In which year was the publisher (Orient BlackSwan) incorporated? | **1948** | [`History_2024-25.pdf`, page 2 (printed page ii)](https://www.orientblackswan.com/pdfs/downloads/History_2024-25.pdf#page=2): *"Incorporated in 1948, the consistent emphasis of our publishing programme has been on quality."* |
+| 1 | On what date were the prices in this catalogue last updated? | **20-01-2025** (20 January 2025) | [`History_2024-25.pdf`, page 24 (printed page 21)](https://www.orientblackswan.com/pdfs/downloads/History_2024-25.pdf#page=24): *"Prices updated on 20-01-2025. These prices are subject to change without notice."* (printed in the footer of every page) |
+| 2 | In which year was the publisher (Orient BlackSwan) incorporated? | **1948** | [`History_2024-25.pdf`, page 2 (printed page ii)](https://www.orientblackswan.com/pdfs/downloads/History_2024-25.pdf#page=2): *"Orient BlackSwan is one of India's best known and most respected publishing houses. Incorporated in 1948, the consistent emphasis of our publishing programme has been on quality."* |
 
 Click a reference to open the catalogue at that page. In the web UI, every reference chip is a link to
 `/pdf/History_2024-25.pdf#page=N`, which opens the PDF at the cited page.
@@ -23,7 +23,7 @@ Click a reference to open the catalogue at that page. In the web UI, every refer
 | 5 | Which is the "best" history book for a beginner? | **Not found** | None. The catalogue describes books but never ranks them as "best" or for beginners. |
 
 **Checked against the raw PDF text:**
-- "Prices updated on 20-01-2025" is printed in the page footers (the bot cited page 91).
+- "Prices updated on 20-01-2025" is printed in the footer of 90 of the 91 pages (the bot cited page 24).
 - "Incorporated in 1948" appears only on page 2.
 - "Minister of Education" and "beginner" do not appear anywhere.
 - "Physics" appears once, inside the description of *Atomic State: Big Science in Twentieth-Century India*, which is a history-of-science book, not a physics textbook.
@@ -119,26 +119,31 @@ flowchart LR
 $ python -m rag.ask --all
 
 Q1: On what date were the prices in this catalogue last updated?
-A: 20-01-2025
-Reference: History_2024-25.pdf, page 91 (printed page 88)
-Quote: "Prices updated on 20-01-2025."
+A: The prices in the catalogue were last updated on 20-01-2025.
+Reference: History_2024-25.pdf, page 24 (printed page 21)
+Quote: "Prices updated on 20-01-2025. These prices are subject to change without notice."
+Open: https://www.orientblackswan.com/pdfs/downloads/History_2024-25.pdf#page=24
 
 Q2: In which year was the publisher (Orient BlackSwan) incorporated?
 A: Orient BlackSwan was incorporated in 1948.
 Reference: History_2024-25.pdf, page 2 (printed page ii)
-Quote: "Incorporated in 1948, the consistent emphasis of our publishing programme has been on quality."
+Quote: "Orient BlackSwan is one of India's best known and most respected publishing houses. Incorporated in 1948, the consistent emphasis of our publishing programme has been on quality."
+Open: https://www.orientblackswan.com/pdfs/downloads/History_2024-25.pdf#page=2
 
 Q3: What is the price of a Physics textbook?
 A: Not found
-Reference: none (closest pages searched: 8, 54, 56, 63, 85, 91)
+Reason: The excerpts from the Orient BlackSwan History Catalogue do not contain any information about a Physics textbook or its price, as the catalogue lists history titles.
+Reference: none (closest pages searched: 29, 31, 32, 33, 35, 47)
 
 Q4: Who is the current Minister of Education?
 A: Not found
-Reference: none (closest pages searched: 34, 37, 38)
+Reason: The provided catalogue excerpts do not contain information about the current Minister of Education.
+Reference: none (closest pages searched: 7, 34, 38)
 
 Q5: Which is the "best" history book for a beginner?
 A: Not found
-Reference: none (closest pages searched: 16, 50, 56, 57, 61, 62)
+Reason: The catalogue lists and describes books but does not rank them or identify any particular history book as the 'best' for a beginner.
+Reference: none (closest pages searched: 10, 34, 53, 74, 77)
 ```
 
 > **Never an error, even on the free tier:** ingesting the catalogue takes 750 of the 1,000 embedding requests the

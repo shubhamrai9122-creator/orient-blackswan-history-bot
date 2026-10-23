@@ -43,7 +43,7 @@
   .chip { display:flex; align-items:center; gap:8px; border:1px solid var(--line); background:#fff; color:var(--ink);
           padding:6px 12px 6px 6px; border-radius:999px; font-size:13.5px; transition:transform .12s, box-shadow .12s; }
   .chip:hover { transform:translateY(-1px); box-shadow:0 4px 12px rgba(74,44,26,.14); }
-  .chip b { color:#fff; font-size:11px; padding:3px 8px; border-radius:999px; }
+  .chip b { flex:none; white-space:nowrap; color:#fff; font-size:11px; padding:3px 8px; border-radius:999px; }
 
   .qa { background:var(--card); border:1px solid var(--line); border-left:6px solid var(--blue); border-radius:16px;
         padding:18px 22px; margin-bottom:16px; box-shadow:0 8px 24px rgba(74,44,26,.07); animation:rise .25s ease-out; }
@@ -82,7 +82,40 @@
   button:focus-visible { outline:3px solid var(--blue); outline-offset:2px; }
   kbd { font:12px ui-monospace, Menlo, monospace; background:#fff; border:1px solid var(--line); border-bottom-width:2px; border-radius:5px; padding:0 5px; }
   footer { color:var(--muted); font-size:12.5px; text-align:center; padding:0 24px 28px; }
-  @media (max-width:600px) { h1 { font-size:21px; } .answer { font-size:19px; } #send { padding:12px 16px; } }
+  /* Responsive: fluid type everywhere, long text wraps, then tablet and phone layouts. */
+  body { -webkit-text-size-adjust:100%; }
+  h1 { font-size:clamp(20px, 2.6vw + 10px, 26px); }
+  .answer { font-size:clamp(18px, 1.6vw + 12px, 22px); }
+  .q, .answer, .ref, blockquote, .chip { overflow-wrap:anywhere; }
+  @media (max-width:820px) {
+    .wrap { padding:0 18px; }
+    .qa { padding:16px 18px; }
+  }
+  @media (max-width:560px) {
+    .wrap { padding:0 14px; }
+    .top { gap:12px; padding:18px 0 12px; }
+    .logo { width:44px; height:44px; font-size:17px; border-radius:12px; }
+    .sub { font-size:13px; }
+    .pills { gap:6px; padding-bottom:16px; }
+    .pill { font-size:11px; padding:3px 9px; }
+    main { padding-top:16px; }
+    form { flex-direction:column; gap:8px; }
+    input { padding:12px; }
+    #send { width:100%; min-height:46px; }
+    .hint-row { flex-wrap:wrap; }
+    #examples { flex-direction:column; }
+    .chip { width:100%; min-height:44px; border-radius:12px; padding:9px 12px 9px 9px; text-align:left; }
+    .qa { padding:14px 14px 16px; border-left-width:5px; border-radius:14px; }
+    .q { font-size:16.5px; padding-right:64px; }
+    .copy { top:10px; right:10px; padding:6px 10px; }
+    .refs { gap:6px; }
+    .ref { font-size:12.5px; }
+    blockquote { font-size:14px; }
+    footer { padding:0 14px 24px; }
+  }
+  @media (max-width:560px), (hover:none) { .kbd-hint { display:none; } }
+  @media (hover:none) { .chip:hover { transform:none; box-shadow:none; } }
+  @media (prefers-reduced-motion:reduce) { *, *::before, *::after { animation:none !important; transition:none !important; } }
 </style>
 </head>
 <body>
@@ -111,7 +144,7 @@
     <button id="send" type="submit">Ask</button>
   </form>
   <div class="hint-row">
-    <div class="hint">Try the exam questions · press <kbd>/</kbd> to type</div>
+    <div class="hint">Try the exam questions<span class="kbd-hint"> · press <kbd>/</kbd> to type</span></div>
     <button id="clear" class="link" type="button">Clear answers</button>
   </div>
   <div id="examples"></div>

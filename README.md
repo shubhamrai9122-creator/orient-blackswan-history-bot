@@ -51,6 +51,14 @@ Each screenshot is the web UI (`server.py`) answering one exam question.
 
 ![Q5 answer](screenshots/q5.png)
 
+### 📱 Responsive on phones and tablets
+
+The UI adapts to the screen. On a phone, the question box and **Ask** button stack, the exam questions become
+full-width buttons that are easy to tap, and long references wrap instead of overflowing. On a tablet, the questions
+wrap two per row. Tested at 375 px (phone), 768 px (tablet) and 1100 px (desktop), with no sideways scrolling at any width.
+
+![The UI on a phone: an answer with its page reference, and a Not found reply](screenshots/mobile.png)
+
 ---
 
 ## 🔄 How it works (flow)
@@ -100,7 +108,7 @@ flowchart LR
    carries the page reference and the supporting quote. A `Not found` reply also lists the closest pages it searched.
 5. **Interfaces**: a CLI (`python -m rag.ask`) and a FastAPI website (`server.py` + `static/index.html`). The website
    has clickable exam questions, a loading state, page-reference chips, the supporting quote, a copy button, and a
-   red "Not in document" state.
+   red "Not in document" state. The layout is responsive from phone to desktop.
 
 ### Example run (CLI)
 

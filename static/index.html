@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Orient BlackSwan History Bot</title>
+<style>
+  :root {
+    --choco-900:#2b1a10; --choco-700:#4a2c1a; --choco-500:#7b4a2d; --caramel:#d9a066; --cream:#fbf3e7;
+    --ink:#2b1a10; --muted:#7a6a5f; --line:#ead9c6; --card:#fffdf9;
+    --red:#d62839; --red-dark:#a4161a; --red-soft:#fde8ea;
+    --blue:#1f6feb; --blue-soft:#e6efff; --green:#1f9d55; --green-soft:#e4f6ec; --purple:#7c3aed;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--cream); color:var(--ink); font:16px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  .wrap { max-width:960px; margin:0 auto; padding:0 24px; }
+
+  header { background:linear-gradient(135deg, var(--choco-900) 0%, var(--choco-700) 55%, var(--choco-500) 100%); color:#fbeee0; }
+  .stripe { height:5px; background:linear-gradient(90deg, var(--red) 0 33.3%, var(--caramel) 33.3% 66.6%, var(--blue) 66.6% 100%); }
+  .top { display:flex; align-items:center; gap:16px; padding:24px 0 16px; }
+  .logo { flex:none; width:54px; height:54px; border-radius:14px; display:grid; place-items:center; font-weight:800; font-size:20px;
+          color:var(--choco-900); background:linear-gradient(135deg, var(--caramel), #f3c98b); box-shadow:0 6px 18px rgba(0,0,0,.25); }
+  h1 { margin:0; font-size:26px; letter-spacing:-.01em; color:#fff; }
+  .sub { margin:2px 0 0; font-size:14px; color:#e9d5c0; }
+  .pills { display:flex; flex-wrap:wrap; gap:8px; padding-bottom:20px; }
+  .pill { font-size:12px; font-weight:700; padding:4px 11px; border-radius:999px; letter-spacing:.02em; }
+  .pill.red { background:var(--red); color:#fff; }
+  .pill.blue { background:var(--blue); color:#fff; }
+  .pill.caramel { background:var(--caramel); color:var(--choco-900); }
+  .pill.glass { background:rgba(255,255,255,.14); color:#fbeee0; border:1px solid rgba(255,255,255,.28); }
+
+  main { padding-top:22px; padding-bottom:36px; }
+  form { display:flex; gap:10px; background:#fff; padding:8px; border-radius:16px; border:1px solid var(--line); box-shadow:0 8px 24px rgba(74,44,26,.08); }
+  form:focus-within { border-color:var(--blue); box-shadow:0 0 0 4px rgba(31,111,235,.15); }
+  input { flex:1; min-width:0; border:0; outline:0; padding:12px 14px; font:inherit; font-size:17px; color:var(--ink); background:transparent; }
+  button { font:inherit; cursor:pointer; }
+  #send { border:0; border-radius:12px; padding:12px 24px; font-weight:700; color:#fff;
+          background:linear-gradient(135deg, var(--red), var(--red-dark)); box-shadow:0 4px 12px rgba(214,40,57,.35); }
+  #send:hover { filter:brightness(1.08); }
+  #send:disabled { opacity:.6; cursor:wait; }
+  .hint { margin:18px 0 8px; font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:.08em; color:var(--choco-500); }
+  #examples { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:22px; }
+  .chip { display:flex; align-items:center; gap:8px; border:1px solid var(--line); background:#fff; color:var(--ink);
+          padding:6px 12px 6px 6px; border-radius:999px; font-size:13.5px; transition:transform .12s, box-shadow .12s; }
+  .chip:hover { transform:translateY(-1px); box-shadow:0 4px 12px rgba(74,44,26,.14); }
+  .chip b { color:#fff; font-size:11px; padding:3px 8px; border-radius:999px; }
+
+  .qa { background:var(--card); border:1px solid var(--line); border-left:6px solid var(--blue); border-radius:16px;
+        padding:18px 22px; margin-bottom:16px; box-shadow:0 8px 24px rgba(74,44,26,.07); animation:rise .25s ease-out; }
+  .qa.nf { border-left-color:var(--red); }
+  .qa.pending { border-left-color:var(--caramel); }
+  @keyframes rise { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
+  .label { font-size:11.5px; font-weight:800; text-transform:uppercase; letter-spacing:.08em; color:var(--choco-500); }
+  .q { font-size:18px; font-weight:650; color:var(--choco-900); margin:2px 0 14px; }
+  .row { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .badge { font-size:12px; font-weight:800; padding:3px 10px; border-radius:999px; }
+  .badge.ok { background:var(--green-soft); color:var(--green); }
+  .badge.no { background:var(--red-soft); color:var(--red); }
+  .answer { font-size:22px; font-weight:650; margin:6px 0 12px; }
+  .qa.nf .answer { color:var(--red); }
+  .refs { display:flex; flex-wrap:wrap; align-items:center; gap:8px; font-size:13.5px; }
+  .ref { background:var(--blue-soft); color:var(--blue); font-weight:700; padding:5px 11px; border-radius:10px; border:1px solid rgba(31,111,235,.25); }
+  .ref.searched { background:#fff; color:var(--muted); border:1px dashed #cdbba8; font-weight:600; }
+  blockquote { margin:12px 0 0; padding:10px 14px; border-left:4px solid var(--caramel); background:#fbefe0; border-radius:0 10px 10px 0;
+               font-size:14.5px; font-style:italic; color:var(--choco-700); white-space:pre-wrap; }
+  .dots span { display:inline-block; width:9px; height:9px; margin-right:5px; border-radius:50%; animation:bounce 1s infinite ease-in-out; }
+  .dots span:nth-child(1) { background:var(--red); }
+  .dots span:nth-child(2) { background:var(--caramel); animation-delay:.15s; }
+  .dots span:nth-child(3) { background:var(--blue); animation-delay:.3s; }
+  @keyframes bounce { 0%, 80%, 100% { transform:scale(.6); opacity:.5; } 40% { transform:scale(1); opacity:1; } }
+  .empty { text-align:center; color:var(--muted); padding:28px; border:2px dashed var(--line); border-radius:16px; }
+  .qa { position:relative; }
+  .q { padding-right:84px; }
+  .copy { position:absolute; top:14px; right:14px; border:1px solid var(--line); background:#fff; color:var(--choco-500);
+          font-size:12px; font-weight:700; padding:4px 10px; border-radius:8px; }
+  .copy:hover { border-color:var(--blue); color:var(--blue); }
+  .time { font-size:12px; color:var(--muted); }
+  .hint-row { display:flex; align-items:baseline; justify-content:space-between; gap:12px; }
+  .link { border:0; background:none; color:var(--blue); font-size:13px; font-weight:700; padding:0; }
+  .link:hover { text-decoration:underline; }
+  .chip:disabled { opacity:.55; cursor:wait; transform:none; box-shadow:none; }
+  button:focus-visible { outline:3px solid var(--blue); outline-offset:2px; }
+  kbd { font:12px ui-monospace, Menlo, monospace; background:#fff; border:1px solid var(--line); border-bottom-width:2px; border-radius:5px; padding:0 5px; }
+  footer { color:var(--muted); font-size:12.5px; text-align:center; padding:0 24px 28px; }
+  @media (max-width:600px) { h1 { font-size:21px; } .answer { font-size:19px; } #send { padding:12px 16px; } }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <div class="top">
+      <div class="logo">OB</div>
+      <div>
+        <h1>Orient BlackSwan History Bot</h1>
+        <p class="sub">Ask about the History Catalogue 2024–25. Every answer cites its page; anything else is “Not found”.</p>
+      </div>
+    </div>
+    <div class="pills">
+      <span class="pill caramel">History Catalogue 2024–25 · 91 pages</span>
+      <span class="pill red">RAG · LangChain</span>
+      <span class="pill blue">ChromaDB</span>
+      <span class="pill glass" id="model">Gemini</span>
+    </div>
+  </div>
+  <div class="stripe"></div>
+</header>
+
+<main class="wrap">
+  <form id="ask">
+    <input id="question" placeholder="Ask about the catalogue…" aria-label="Your question" autocomplete="off" autofocus required>
+    <button id="send" type="submit">Ask</button>
+  </form>
+  <div class="hint-row">
+    <div class="hint">Try the exam questions · press <kbd>/</kbd> to type</div>
+    <button id="clear" class="link" type="button">Clear answers</button>
+  </div>
+  <div id="examples"></div>
+  <div id="log" aria-live="polite"><div class="empty" id="empty">Your answers appear here, each with the page it came from.</div></div>
+</main>
+<footer>Answers come only from History_2024-25.pdf (Orient BlackSwan) · Python · LangChain · ChromaDB · Gemini</footer>
+
+<script>
+/*__BOOT__*/
+const BOOT = window.BOOT || { initial: [], examples: [], model: '' };
+const CHIP_COLORS = ['var(--red)', 'var(--blue)', 'var(--caramel)', 'var(--green)', 'var(--purple)'];
+const log = document.getElementById('log');
+const input = document.getElementById('question');
+const send = document.getElementById('send');
+const EMPTY = document.getElementById('empty');
+
+function setBusy(busy) {
+  send.disabled = busy;
+  document.querySelectorAll('.chip').forEach(c => { c.disabled = busy; });
+}
+
+function answerText(res) {
+  let text = 'Q: ' + res.question + '\nA: ' + res.answer;
+  if (res.found) text += '\nReference: History_2024-25.pdf, ' + res.references.map(r => 'page ' + r.page).join(', ');
+  return text;
+}
+
+function copyButton(res) {
+  const btn = el('button', 'copy', 'Copy');
+  btn.type = 'button';
+  btn.title = 'Copy question, answer and reference';
+  btn.onclick = async () => {
+    try { await navigator.clipboard.writeText(answerText(res)); btn.textContent = 'Copied ✓'; }
+    catch { btn.textContent = 'Copy failed'; }
+    setTimeout(() => { btn.textContent = 'Copy'; }, 1500);
+  };
+  return btn;
+}
+
+function el(tag, cls, text) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text != null) e.textContent = text;
+  return e;
+}
+
+function clearEmpty() {
+  const empty = document.getElementById('empty');
+  if (empty) empty.remove();
+}
+
+function render(res, placeholder, animate = true) {
+  const card = el('div', 'qa' + (res.found ? '' : ' nf'));
+  if (!animate) card.style.animation = 'none';
+  card.append(el('div', 'label', 'Question'), el('div', 'q', res.question));
+
+  const head = el('div', 'row');
+  const status = res.error ? 'Error' : res.found ? '✓ Found in document' : '✕ Not in document';
+  head.append(el('span', 'label', 'Answer'), el('span', 'badge ' + (res.found ? 'ok' : 'no'), status));
+  if (res.seconds) head.append(el('span', 'time', 'answered in ' + res.seconds + ' s'));
+  card.append(head, el('div', 'answer', res.answer));
+  if (!res.error) card.append(copyButton(res));
+
+  const refs = el('div', 'refs');
+  if (res.found) {
+    refs.append(el('span', 'label', 'Reference'));
+    res.references.forEach(r => refs.append(el('span', 'ref', '📄 History_2024-25.pdf · page ' + r.page +
+      (r.page_label && r.page_label !== String(r.page) ? ' (printed ' + r.page_label + ')' : ''))));
+    card.append(refs);
+    if (res.quote) card.append(el('blockquote', null, '“' + res.quote + '”'));
+  } else if (res.searched_pages) {
+    refs.append(el('span', 'label', 'Reference: none · closest pages searched'));
+    res.searched_pages.forEach(p => refs.append(el('span', 'ref searched', 'p. ' + p)));
+    card.append(refs);
+  }
+
+  clearEmpty();
+  if (placeholder) placeholder.replaceWith(card); else log.prepend(card);
+}
+
+function pendingCard(question) {
+  const card = el('div', 'qa pending');
+  const row = el('div', 'row');
+  const dots = el('span', 'dots');
+  dots.append(el('span'), el('span'), el('span'));
+  row.append(dots, el('span', 'label', 'Searching the catalogue…'));
+  card.append(el('div', 'label', 'Question'), el('div', 'q', question), row);
+  clearEmpty();
+  log.prepend(card);
+  return card;
+}
+
+async function askQuestion(question) {
+  setBusy(true);
+  const placeholder = pendingCard(question);
+  const started = performance.now();
+  try {
+    const r = await fetch('/ask', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question }),
+    });
+    if (!r.ok) throw new Error('the server replied HTTP ' + r.status + '. Check the terminal running uvicorn.');
+    const res = await r.json();
+    res.seconds = ((performance.now() - started) / 1000).toFixed(1);
+    render(res, placeholder);
+  } catch (err) {
+    render({ question, found: false, error: true, answer: 'Error: ' + err.message, references: [] }, placeholder);
+  } finally {
+    setBusy(false);
+    input.focus();
+  }
+}
+
+document.getElementById('clear').onclick = () => { log.replaceChildren(EMPTY); input.focus(); };
+document.addEventListener('keydown', e => {
+  if (e.key === '/' && document.activeElement !== input) { e.preventDefault(); input.focus(); }
+});
+
+document.getElementById('ask').addEventListener('submit', e => {
+  e.preventDefault();
+  const q = input.value.trim();
+  if (q) { askQuestion(q); input.value = ''; }
+});
+
+BOOT.examples.forEach((q, i) => {
+  const chip = el('button', 'chip');
+  chip.type = 'button';
+  const num = el('b', null, 'Q' + (i + 1));
+  num.style.background = CHIP_COLORS[i % CHIP_COLORS.length];
+  chip.append(num, document.createTextNode(q));
+  chip.onclick = () => askQuestion(q);
+  document.getElementById('examples').append(chip);
+});
+if (BOOT.model) document.getElementById('model').textContent = BOOT.model;
+BOOT.initial.forEach(res => render(res, null, false));
+</script>
+</body>
+</html>

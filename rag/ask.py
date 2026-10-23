@@ -4,6 +4,10 @@ Step 2 - Ask the History Bot
     question -> retriever (top-k chunks) -> grounded prompt -> Gemini -> JSON
              -> guardrail -> answer + page reference, or exactly "Not found"
 
+The bot never shows an error. If the Gemini embeddings quota is used up it falls
+back to keyword search over the stored chunks, and anything it cannot answer from
+the catalogue (gibberish, off-topic, or a failed model call) is "Not found".
+
 Run (from the project root, after `python -m rag.ingest`):
     python -m rag.ask                  interactive
     python -m rag.ask -q "question"    one question
@@ -11,9 +15,16 @@ Run (from the project root, after `python -m rag.ingest`):
 """
 
 import argparse
+import json
+import logging
+import math
+import re
+import threading
+from collections import Counter
 from functools import lru_cache
 
 from langchain_chroma import Chroma
+from langchain_core.documents import Document
 from langchain_core.output_parsers import JsonOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnableLambda, RunnablePassthrough
@@ -21,6 +32,8 @@ from langchain_core.runnables import RunnableLambda, RunnablePassthrough
 from rag import config
 from rag.gemini_llm import GeminiInteractionsLLM
 from rag.ingest import get_embeddings
+
+log = logging.getLogger("history_bot")
 
 EXAM_QUESTIONS = [
     "On what date were the prices in this catalogue last updated?",
@@ -56,10 +69,69 @@ Catalogue excerpts:
 Question: {question}"""
 )
 
+STOPWORDS = set(
+    "a an the is are was were be been am of in on at to for and or what which who whom whose when where why how "
+    "this that these those it its by with from as do does did i you we they he she me my our your their about any "
+    "there can could would should will has have had not no if than then so into also only very most more".split()
+)
+
+
+def words(text: str) -> list:
+    return re.findall(r"[a-z0-9]+", text.lower())
+
+
+@lru_cache(maxsize=1)
+def get_store() -> Chroma:
+    return Chroma(
+        collection_name=config.COLLECTION,
+        embedding_function=get_embeddings(),
+        persist_directory=str(config.DB_DIR),
+    )
+
+
+@lru_cache(maxsize=1)
+def keyword_index():
+    """Every stored chunk with its word counts, for keyword search."""
+    data = get_store().get(include=["documents", "metadatas"])
+    chunks = [Document(page_content=t, metadata=m) for t, m in zip(data["documents"], data["metadatas"])]
+    counts = [Counter(words(c.page_content)) for c in chunks]
+    doc_freq = Counter(w for c in counts for w in c)
+    return chunks, counts, doc_freq
+
+
+def keyword_search(question: str, k: int) -> list:
+    """TF-IDF keyword search over the stored chunks; needs no API call."""
+    chunks, counts, doc_freq = keyword_index()
+    terms = set(words(question)) - STOPWORDS
+    scored = []
+    for chunk, count in zip(chunks, counts):
+        score = sum((1 + math.log(count[t])) * math.log(len(chunks) / doc_freq[t]) for t in terms if count[t])
+        if score > 0:
+            scored.append((score, chunk))
+    scored.sort(key=lambda pair: pair[0], reverse=True)
+    return [chunk for _, chunk in scored[:k]]
+
+
+def retrieve(question: str) -> dict:
+    """Semantic search with Gemini embeddings; keyword search if the embeddings API is unavailable."""
+    try:
+        retriever = get_store().as_retriever(search_kwargs={"k": config.TOP_K})
+        return {"chunks": retriever.invoke(question), "retrieval": "embeddings"}
+    except Exception as err:  # e.g. the free-tier embeddings quota is used up
+        log.warning("Embedding search failed, using keyword search: %s", str(err)[:150])
+        return {"chunks": keyword_search(question, config.TOP_K), "retrieval": "keywords"}
+
 
 def format_chunks(chunks) -> str:
     # Tag every chunk with its page so the model can cite where the answer is.
     return "\n\n".join(f"[Page {c.metadata['page_number']}]\n{c.page_content}" for c in chunks)
+
+
+def not_found(question: str, searched=()) -> dict:
+    result = {"question": question, "found": False, "answer": config.NOT_FOUND, "references": []}
+    if searched:
+        result["searched_pages"] = sorted(searched)
+    return result
 
 
 def apply_guardrail(state: dict) -> dict:
@@ -69,55 +141,86 @@ def apply_guardrail(state: dict) -> dict:
     pages = sorted({int(p) for p in result.get("pages", []) if str(p).isdigit() and int(p) in retrieved})
     answer = str(result.get("answer", "")).strip()
     if not result.get("found") or not answer or not pages:
-        return {
+        reply = not_found(state["question"], retrieved)
+    else:
+        reply = {
             "question": state["question"],
-            "found": False,
-            "answer": config.NOT_FOUND,
-            "references": [],
-            "searched_pages": sorted(retrieved),
+            "found": True,
+            "answer": answer,
+            "quote": str(result.get("quote", "")).strip(),
+            "references": [{"page": p, "page_label": retrieved[p]} for p in pages],
         }
-    return {
-        "question": state["question"],
-        "found": True,
-        "answer": answer,
-        "quote": str(result.get("quote", "")).strip(),
-        "references": [{"page": p, "page_label": retrieved[p]} for p in pages],
-    }
+    reply["retrieval"] = state["retrieval"]
+    return reply
 
 
 @lru_cache(maxsize=1)
 def build_chain():
-    store = Chroma(
-        collection_name=config.COLLECTION,
-        embedding_function=get_embeddings(),
-        persist_directory=str(config.DB_DIR),
+    llm = GeminiInteractionsLLM(
+        model=config.MODEL_NAME, fallback_models=config.FALLBACK_MODELS, api_key=config.GEMINI_API_KEY
     )
-    retriever = store.as_retriever(search_kwargs={"k": config.TOP_K})
-    llm = GeminiInteractionsLLM(model=config.MODEL_NAME, api_key=config.GEMINI_API_KEY)
-
     answer_chain = (
         {"context": lambda s: format_chunks(s["chunks"]), "question": lambda s: s["question"]}
         | PROMPT
         | llm
         | JsonOutputParser()
     )
+
+    def answer(state: dict) -> dict:
+        # Nothing relevant retrieved (e.g. gibberish): no need to ask the model.
+        return answer_chain.invoke(state) if state["chunks"] else {"found": False}
+
     # Retrieve once, keep the chunks for the guardrail, then answer.
     return (
-        RunnablePassthrough.assign(chunks=lambda s: retriever.invoke(s["question"]))
-        | RunnablePassthrough.assign(result=answer_chain)
+        RunnableLambda(lambda s: {**s, **retrieve(s["question"])})
+        | RunnablePassthrough.assign(result=answer)
         | RunnableLambda(apply_guardrail)
     )
 
 
-@lru_cache(maxsize=128)
+def _key(question: str) -> str:
+    return " ".join(question.lower().split())
+
+
+def _load_answers() -> dict:
+    try:
+        return json.loads(config.ANSWER_CACHE.read_text())
+    except (OSError, ValueError):
+        return {}
+
+
+ANSWERS = _load_answers()
+_answers_lock = threading.Lock()
+
+
 def ask(question: str) -> dict:
-    return build_chain().invoke({"question": question.strip()})
+    """Answer one question. Never raises: whatever can't be answered from the catalogue is "Not found"."""
+    question = question.strip()
+    key = _key(question)
+    if key in ANSWERS:
+        return {**ANSWERS[key], "question": question}
+    if not re.search(r"[a-z0-9]", key):
+        return not_found(question)
+    try:
+        result = build_chain().invoke({"question": question})
+    except Exception as err:  # quota, network or an unreadable model reply
+        log.error("Could not answer %r: %s", question, str(err)[:200])
+        return not_found(question)
+    # Keep answers from the full semantic search; keyword-search answers get redone once embeddings work again.
+    if result["retrieval"] == "embeddings":
+        with _answers_lock:
+            ANSWERS[key] = result
+            try:
+                config.ANSWER_CACHE.write_text(json.dumps(ANSWERS, indent=2, ensure_ascii=False))
+            except OSError as err:
+                log.warning("Could not save answer cache: %s", err)
+    return result
 
 
 def format_reply(res: dict) -> str:
     if not res["found"]:
         searched = ", ".join(str(p) for p in res.get("searched_pages", []))
-        return f"{config.NOT_FOUND}\nReference: none (closest pages searched: {searched})"
+        return config.NOT_FOUND + (f"\nReference: none (closest pages searched: {searched})" if searched else "")
     pages = ", ".join(
         f"page {r['page']}"
         + (f" (printed page {r['page_label']})" if r["page_label"] not in (None, str(r["page"])) else "")

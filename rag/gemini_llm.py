@@ -15,14 +15,15 @@ import requests
 from langchain_core.language_models.llms import LLM
 
 INTERACTIONS_URL = "https://generativelanguage.googleapis.com/v1beta/interactions"
-RETRY_STATUS = {429, 500, 502, 503, 504}
+RETRY_STATUS = {500, 502, 503, 504}
 
 
 class GeminiInteractionsLLM(LLM):
     model: str = "gemini-3.5-flash"
+    fallback_models: List[str] = []  # tried in order when a model's quota is used up (HTTP 429)
     api_key: str
     timeout: int = 120
-    max_retries: int = 4
+    max_retries: int = 3
 
     @property
     def _llm_type(self) -> str:
@@ -30,18 +31,23 @@ class GeminiInteractionsLLM(LLM):
 
     def _call(self, prompt: str, stop: Optional[List[str]] = None, run_manager: Any = None, **kwargs: Any) -> str:
         headers = {"x-goog-api-key": self.api_key, "Content-Type": "application/json"}
-        payload = {"model": self.model, "input": prompt}
-        for attempt in range(self.max_retries):
-            try:
-                resp = requests.post(INTERACTIONS_URL, json=payload, headers=headers, timeout=self.timeout)
-            except requests.Timeout:
-                resp = None
-            if resp is not None and resp.status_code not in RETRY_STATUS:
-                resp.raise_for_status()
-                return _extract_text(resp.json())
-            if attempt < self.max_retries - 1:
-                time.sleep(5 * 2**attempt)  # 5s, 10s, 20s: back off on rate limits and overload
-        raise RuntimeError(f"Gemini Interactions API failed after {self.max_retries} attempts")
+        for model in dict.fromkeys([self.model, *self.fallback_models]):
+            for attempt in range(self.max_retries):
+                try:
+                    resp = requests.post(
+                        INTERACTIONS_URL, json={"model": model, "input": prompt}, headers=headers, timeout=self.timeout
+                    )
+                except requests.RequestException:
+                    resp = None
+                if resp is not None and resp.ok:
+                    return _extract_text(resp.json())
+                if resp is not None and resp.status_code == 429:
+                    break  # this model's quota is used up: try the next model
+                if resp is not None and resp.status_code not in RETRY_STATUS:
+                    resp.raise_for_status()
+                if attempt < self.max_retries - 1:
+                    time.sleep(3 * 2**attempt)  # 3s, 6s: back off on overload and timeouts
+        raise RuntimeError("Every Gemini model failed or is out of quota")
 
 
 def _extract_text(data: dict) -> str:

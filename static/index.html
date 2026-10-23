@@ -215,7 +215,7 @@ function render(res, placeholder, animate = true) {
       (r.page_label && r.page_label !== String(r.page) ? ' (printed ' + r.page_label + ')' : ''))));
     card.append(refs);
     if (res.quote) card.append(el('blockquote', null, '“' + res.quote + '”'));
-  } else if (res.searched_pages) {
+  } else if (res.searched_pages && res.searched_pages.length) {
     refs.append(el('span', 'label', 'Reference: none · closest pages searched'));
     res.searched_pages.forEach(p => refs.append(el('span', 'ref searched', 'p. ' + p)));
     card.append(refs);

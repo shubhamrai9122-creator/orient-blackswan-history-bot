@@ -138,9 +138,13 @@ A: Not found
 Reference: none (closest pages searched: 16, 50, 56, 57, 61, 62)
 ```
 
-> **Free-tier note:** ingesting the catalogue takes 750 embedding requests, and the Gemini free tier allows 1,000 per day
-> for `gemini-embedding-001`. After one ingest you have roughly 250 questions left that day. When the quota runs out,
-> the web UI shows "Gemini free-tier quota reached" instead of failing silently.
+> **Never an error, even on the free tier:** ingesting the catalogue takes 750 of the 1,000 embedding requests the
+> Gemini free tier allows per day. When a quota runs out, the bot keeps working:
+> - retrieval falls back to keyword (TF-IDF) search over the chunks already stored in ChromaDB;
+> - the chat model falls back to `gemini-3.5-flash-lite`, then `gemini-3-flash-preview`;
+> - answers are saved in `db/answer_cache.json`, so a restart doesn't lose them.
+>
+> Gibberish (`/jkk`), off-topic questions (`who is we`) and failed model calls all get **`Not found`**, never an error.
 
 ---
 
